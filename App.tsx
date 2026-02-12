@@ -19,13 +19,15 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
+    console.log("App: Iniciando Hook de Inicialização...");
     const init = async () => {
       try { 
         setIsInitializing(true);
         setInitError(null);
-        await storage.initDatabase(); 
+        await storage.initDatabase();
+        console.log("App: Banco de dados inicializado com sucesso.");
       } catch (err: any) {
-        console.error("Initialization Failed:", err);
+        console.error("App: Falha na Inicialização:", err);
         setInitError(err?.message || "Erro desconhecido ao conectar com a infraestrutura cloud.");
       } finally { 
         setIsInitializing(false); 
