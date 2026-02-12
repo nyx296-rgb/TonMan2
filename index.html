@@ -14,8 +14,28 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3621/3621144.png" />
     <link rel="manifest" href="manifest.json" />
 
+    <!-- Meta para mitigar avisos de Permissions-Policy em alguns ambientes -->
+    <meta http-equiv="Delegate-CH" content="sec-ch-ua-arch; sec-ch-ua-platform-version; sec-ch-ua-model" />
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+      // Configuração para silenciar o aviso de produção do Tailwind no console, se possível
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              indigo: {
+                500: '#6366f1',
+                600: '#4f46e5',
+              }
+            }
+          }
+        }
+      }
+    </script>
+
     <style>
       body {
         font-family: 'Inter', sans-serif;
@@ -57,6 +77,25 @@
           backdrop-filter: blur(8px);
         }
       }
+
+      #root:empty::before {
+        content: "Iniciando Camada Visual...";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.5em;
+        font-size: 10px;
+        color: rgba(255,255,255,0.1);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.2; }
+        50% { opacity: 0.5; }
+      }
     </style>
     <script type="importmap">
     {
@@ -73,10 +112,9 @@
   <body>
     <div id="root"></div>
     <script>
-      // Service Worker minimal registration for PWA installability
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+          navigator.serviceWorker.register('sw.js').catch(err => {});
         });
       }
     </script>

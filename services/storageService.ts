@@ -8,8 +8,15 @@ const DATABASE_URL = 'postgresql://neondb_owner:npg_Sdw7mCgU3WrF@ep-ancient-wate
 const sql = neon(DATABASE_URL);
 
 class StorageService {
+  public lastError: string | null = null;
+
   async initDatabase() {
     try {
+      this.lastError = null;
+      
+      // Teste de conexão simples
+      await sql`SELECT 1`;
+
       await sql`CREATE TABLE IF NOT EXISTS units (id TEXT PRIMARY KEY, name TEXT NOT NULL, display_order INTEGER DEFAULT 0)`;
       await sql`CREATE TABLE IF NOT EXISTS toners (id TEXT PRIMARY KEY, model TEXT NOT NULL, color TEXT NOT NULL, active BOOLEAN DEFAULT true)`;
       await sql`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL, display_name TEXT NOT NULL, email TEXT NOT NULL, permissions JSONB DEFAULT '[]')`;
@@ -88,8 +95,10 @@ class StorageService {
                   ON CONFLICT (username) DO NOTHING`;
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro Crítico no Banco:", error);
+      this.lastError = error?.message || "Erro desconhecido ao conectar com a nuvem.";
+      throw error;
     }
   }
 

@@ -15,12 +15,18 @@ const App: React.FC = () => {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isInitializing, setIsInitializing] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const init = async () => {
       try { 
+        setIsInitializing(true);
+        setInitError(null);
         await storage.initDatabase(); 
+      } catch (err: any) {
+        console.error("Initialization Failed:", err);
+        setInitError(err?.message || "Erro desconhecido ao conectar com a infraestrutura cloud.");
       } finally { 
         setIsInitializing(false); 
       }
@@ -32,17 +38,21 @@ const App: React.FC = () => {
     if (!authState.isAuthenticated || !authState.user) return;
     
     const updateCount = async () => {
-      const requests = await storage.getRequests();
-      const currentUser = authState.user;
-      const isAdminOrSupport = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPPORT;
-      
-      const pending = requests.filter(r => {
-        const isPending = r.status === 'PENDING';
-        if (isAdminOrSupport) return isPending;
-        return isPending && r.unitId === currentUser?.unitId;
-      }).length;
-      
-      setPendingCount(pending);
+      try {
+        const requests = await storage.getRequests();
+        const currentUser = authState.user;
+        const isAdminOrSupport = currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.SUPPORT;
+        
+        const pending = requests.filter(r => {
+          const isPending = r.status === 'PENDING';
+          if (isAdminOrSupport) return isPending;
+          return isPending && r.unitId === currentUser?.unitId;
+        }).length;
+        
+        setPendingCount(pending);
+      } catch (e) {
+        console.warn("Silent background update fail:", e);
+      }
     };
 
     updateCount();
@@ -53,13 +63,17 @@ const App: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    const users = await storage.getUsers();
-    const user = users.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase());
-    
-    if (user && loginForm.password === '123') { 
-      setAuthState({ user, isAuthenticated: true });
-    } else {
-      setLoginError('Acesso negado. Verifique usuário e senha.');
+    try {
+      const users = await storage.getUsers();
+      const user = users.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase());
+      
+      if (user && loginForm.password === '123') { 
+        setAuthState({ user, isAuthenticated: true });
+      } else {
+        setLoginError('Acesso negado. Verifique usuário e senha.');
+      }
+    } catch (e) {
+      setLoginError('Erro de conexão com o banco de dados.');
     }
   };
 
@@ -68,6 +82,33 @@ const App: React.FC = () => {
     setActivePage('dashboard');
     setIsSidebarOpen(false);
   };
+
+  // Error State Render
+  if (initError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0b0e] p-6">
+        <div className="glass-card max-w-lg w-full p-12 rounded-[3rem] border-2 border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.1)] text-center">
+          <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-8 border border-red-500/20">
+            ⚠️
+          </div>
+          <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">Falha na Infraestrutura</h2>
+          <p className="text-sm text-white/40 mb-8 font-medium leading-relaxed">
+            Não foi possível estabelecer uma conexão segura com o nó de dados Neon. Isso pode ocorrer devido a restrições de rede ou falha no gateway.
+          </p>
+          <div className="bg-black/40 p-5 rounded-2xl border border-white/5 mb-8 text-left">
+            <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Debug Info</p>
+            <p className="text-[10px] font-mono text-red-400 break-all">{initError}</p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="w-full bg-white/5 hover:bg-white/10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-white transition-all border border-white/10"
+          >
+            Tentar Reconectar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isInitializing) {
     return (
@@ -78,7 +119,7 @@ const App: React.FC = () => {
             <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
           </div>
         </div>
-        <p className="mt-8 text-white/40 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Iniciando Terminal Seguro</p>
+        <p className="mt-8 text-white/40 font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Sincronizando Nó Enterprise</p>
       </div>
     );
   }
@@ -153,7 +194,6 @@ const App: React.FC = () => {
       />
       
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Header */}
         <header className="lg:hidden glass border-b border-white/5 p-4 flex justify-between items-center shrink-0">
           <button onClick={() => setIsSidebarOpen(true)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-white">
             ☰
