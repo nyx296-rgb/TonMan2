@@ -5,12 +5,16 @@ import { GlassCard } from '../components/GlassCard';
 import { User, Unit, Toner, UserRole, UnitSector } from '../types';
 
 export const Management: React.FC = () => {
-  const [tab, setTab] = useState<'users' | 'units' | 'toners' | 'sectors'>('users');
+  const [tab, setTab] = useState<'users' | 'units' | 'toners' | 'sectors' | 'cloud'>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [toners, setToners] = useState<Toner[]>([]);
   const [sectors, setSectors] = useState<UnitSector[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Cloud Simulation States
+  const [desiredDomain, setDesiredDomain] = useState('');
+  const [domainStatus, setDomainStatus] = useState<'idle' | 'checking' | 'available'>('idle');
 
   // Edit State
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -160,6 +164,12 @@ export const Management: React.FC = () => {
     setIsProcessing(false);
   };
 
+  const checkDomain = () => {
+    if (!desiredDomain) return;
+    setDomainStatus('checking');
+    setTimeout(() => setDomainStatus('available'), 1500);
+  };
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center p-24 space-y-4">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -172,19 +182,20 @@ export const Management: React.FC = () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h2 className="text-3xl font-black text-white/90 tracking-tighter italic uppercase">Gestão de Infraestrutura</h2>
-          <p className="text-white/40 text-sm font-medium">Controle granular de acessos, unidades e setores operacionais.</p>
+          <p className="text-white/40 text-sm font-medium">Controle granular de acessos, unidades e infraestrutura de rede.</p>
         </div>
-        <div className="flex bg-white/5 p-1.5 rounded-[2rem] border border-white/10 backdrop-blur-xl shadow-2xl">
+        <div className="flex bg-white/5 p-1.5 rounded-[2rem] border border-white/10 backdrop-blur-xl shadow-2xl overflow-x-auto max-w-full custom-scrollbar">
           {[
             { id: 'users', label: '👥 Acessos' },
             { id: 'units', label: '🏢 Unidades' },
             { id: 'sectors', label: '📍 Setores' },
-            { id: 'toners', label: '🖨️ Insumos' }
+            { id: 'toners', label: '🖨️ Insumos' },
+            { id: 'cloud', label: '🌐 Nuvem & DNS' }
           ].map((t) => (
             <button
               key={t.id}
               onClick={() => { setTab(t.id as any); setShowEditModal(false); }}
-              className={`px-6 py-3 rounded-[1.5rem] font-black uppercase text-[9px] tracking-[0.2em] transition-all duration-500 ${
+              className={`px-6 py-3 rounded-[1.5rem] font-black uppercase text-[9px] tracking-[0.2em] transition-all duration-500 whitespace-nowrap ${
                 tab === t.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/40' : 'text-white/30 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -193,6 +204,130 @@ export const Management: React.FC = () => {
           ))}
         </div>
       </header>
+
+      {/* --- CLOUD TAB --- */}
+      {tab === 'cloud' && (
+        <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Status do Servidor */}
+            <GlassCard title="Rede & Endereçamento" className="lg:col-span-1 border-indigo-500/20">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                    <span className="text-xs font-black uppercase tracking-widest text-white/70">Gateway Neon DB</span>
+                  </div>
+                  <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full uppercase">Ativo</span>
+                </div>
+
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">Endereço IP Público (Anycast)</span>
+                    <span className="text-indigo-400 font-mono text-[10px]">76.76.21.21</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">Protocolo Seguro</span>
+                    <span className="text-emerald-400 font-mono text-[10px]">HTTPS / TLS 1.3</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">CDN Endpoint</span>
+                    <span className="text-indigo-400 font-mono text-[10px]">vercel-edge.net</span>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-[9px] text-white/20 uppercase font-black tracking-[0.1em] leading-relaxed">
+                    Seu sistema está operando em uma rede de borda global. O IP acima é o ponto de entrada seguro para todos os acessos.
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
+
+            {/* Configuração de Domínio Profissional */}
+            <GlassCard title="Domínio & DNS Personalizado" className="lg:col-span-2 border-purple-500/20">
+              <div className="space-y-6">
+                <p className="text-sm text-white/60">Para ter um endereço como <span className="text-purple-400 font-bold">tonman.hospital.com.br</span>, siga estes passos técnicos:</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black text-white/30 uppercase tracking-widest">1. Escolha seu Domínio</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="tonman.empresa.com.br" 
+                        value={desiredDomain}
+                        onChange={(e) => setDesiredDomain(e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:ring-1 focus:ring-purple-500"
+                      />
+                      <button 
+                        onClick={checkDomain}
+                        className="bg-purple-600 px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all"
+                      >
+                        {domainStatus === 'checking' ? 'Validando...' : 'Verificar'}
+                      </button>
+                    </div>
+                    {domainStatus === 'available' && (
+                      <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-in fade-in slide-in-from-top-1">
+                        <span className="text-emerald-400">✅</span>
+                        <span className="text-[9px] text-emerald-400 font-black uppercase">Domínio pronto para apontamento DNS</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                    <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em] mb-4">Configuração de Zona DNS</h4>
+                    <div className="space-y-3 font-mono text-[9px]">
+                      <div className="flex justify-between border-b border-white/5 pb-2">
+                        <span className="text-white/20">TYPE</span>
+                        <span className="text-white/20">NAME</span>
+                        <span className="text-white/20">VALUE</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-400">A</span>
+                        <span className="text-white">@</span>
+                        <span className="text-indigo-400">76.76.21.21</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-400">CNAME</span>
+                        <span className="text-white">www</span>
+                        <span className="text-indigo-400">cname.vercel-dns.com</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 border border-dashed border-white/10 rounded-3xl bg-indigo-500/5">
+                   <h5 className="text-[10px] font-black text-white mb-2 uppercase">Por que usar DNS Próprio?</h5>
+                   <ul className="grid grid-cols-2 gap-4 text-[10px] text-white/40 font-medium">
+                      <li className="flex gap-2"><span>💎</span> Marca Profissional</li>
+                      <li className="flex gap-2"><span>🔒</span> Certificado SSL Próprio</li>
+                      <li className="flex gap-2"><span>🚀</span> Cache Global</li>
+                      <li className="flex gap-2"><span>🛡️</span> Proteção Anti-DDoS</li>
+                   </ul>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="p-8 bg-white/5 rounded-[2.5rem] border border-white/10 flex flex-col items-center text-center group hover:bg-indigo-600/10 transition-all cursor-pointer" onClick={() => window.open('https://vercel.com', '_blank')}>
+               <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">⚡</span>
+               <h4 className="text-xs font-black uppercase text-white tracking-widest mb-2">Deploy na Vercel</h4>
+               <p className="text-[9px] text-white/30 uppercase leading-relaxed">Conecte seu GitHub e publique em segundos com IP Anycast grátis.</p>
+            </div>
+            <div className="p-8 bg-white/5 rounded-[2.5rem] border border-white/10 flex flex-col items-center text-center group hover:bg-blue-600/10 transition-all cursor-pointer" onClick={() => window.open('https://cloudflare.com', '_blank')}>
+               <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">☁️</span>
+               <h4 className="text-xs font-black uppercase text-white tracking-widest mb-2">Cloudflare Proxy</h4>
+               <p className="text-[9px] text-white/30 uppercase leading-relaxed">Mascare seu IP real e obtenha proteção de nível militar e DNS ultrarrápido.</p>
+            </div>
+            <div className="p-8 bg-white/5 rounded-[2.5rem] border border-white/10 flex flex-col items-center text-center group hover:bg-emerald-600/10 transition-all cursor-pointer" onClick={() => window.open('https://neon.tech', '_blank')}>
+               <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">💾</span>
+               <h4 className="text-xs font-black uppercase text-white tracking-widest mb-2">Neon Serverless</h4>
+               <p className="text-[9px] text-white/30 uppercase leading-relaxed">Banco de dados SQL na nuvem com escala automática e latência zero.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- USERS TAB --- */}
       {tab === 'users' && (

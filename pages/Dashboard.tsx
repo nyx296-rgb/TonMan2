@@ -38,7 +38,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
         storage.getUsers()
       ]);
 
-      // Filtrar dados sensíveis se o usuário for restrito à unidade
       const filteredUnitToners = isGlobalUser ? ut : ut.filter(item => item.unitId === user?.unitId);
       const filteredRequests = isGlobalUser ? rq : rq.filter(item => item.unitId === user?.unitId);
       const filteredTransactions = isGlobalUser ? tr : tr.filter(item => item.unitId === user?.unitId);
@@ -59,8 +58,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   if (loading || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-indigo-500"></div>
+        <p className="text-white/10 font-black uppercase tracking-[0.3em] text-[8px]">Indexando Analytics...</p>
       </div>
     );
   }
@@ -69,8 +69,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     const total = data.unitToners
       .filter(ut => ut.tonerId === t.id)
       .reduce((sum, current) => sum + current.quantity, 0);
-    return { name: t.model, total };
-  }).filter(item => item.total > 0);
+    return { name: t.model.split(' ')[0], full: t.model, total };
+  }).filter(item => item.total > 0).slice(0, 6);
 
   const colorsMap: Record<string, number> = {};
   data.unitToners.forEach(ut => {
@@ -81,127 +81,114 @@ export const Dashboard: React.FC<DashboardProps> = ({ user }) => {
   });
   const stockByColor = Object.entries(colorsMap).map(([name, value]) => ({ name, value }));
 
-  const currentUnitName = isGlobalUser ? 'Consolidado Global' : data.units[0]?.name || 'Minha Unidade';
+  const currentUnitName = isGlobalUser ? 'Consolidado Global' : data.units[0]?.name || 'Unidade Local';
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-2">
+    <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-700">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h2 className="text-3xl font-black text-white/90 tracking-tighter uppercase italic">Dashboard Analytics</h2>
-          <p className="text-white/40 font-medium text-sm">
+          <h2 className="text-2xl sm:text-4xl font-black text-white/90 tracking-tighter uppercase italic leading-none">Visão Geral</h2>
+          <p className="text-white/30 font-black uppercase text-[8px] sm:text-[10px] tracking-[0.2em] mt-2">
             {isGlobalUser 
-              ? 'Visão holística de toda a infraestrutura hospitalar.' 
-              : `Monitoramento local: ${currentUnitName}`}
+              ? 'Status Operacional de Rede' 
+              : `Terminal: ${currentUnitName}`}
           </p>
         </div>
         {!isGlobalUser && (
-           <div className="bg-indigo-500/10 border border-indigo-500/20 px-4 py-1 rounded-full">
-             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Restrito: Unidade Ativa</span>
+           <div className="bg-indigo-600/10 border border-indigo-500/20 px-4 py-1.5 rounded-full backdrop-blur-md">
+             <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Acesso Restrito</span>
            </div>
         )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <GlassCard className="border-l-4 border-l-indigo-500 bg-white/[0.03]">
-          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Volume Total</p>
-          <p className="text-4xl font-black text-white mt-2 tracking-tighter">{data.unitToners.reduce((a, b) => a + b.quantity, 0)}</p>
-          <div className="mt-2 text-[8px] font-bold text-white/20 uppercase">Insumos em prateleira</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <GlassCard className="p-4 sm:p-6 border-l-2 sm:border-l-4 border-indigo-500 bg-indigo-500/5">
+          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Insumos</p>
+          <p className="text-2xl sm:text-4xl font-black text-white mt-1 tabular-nums">{data.unitToners.reduce((a, b) => a + b.quantity, 0)}</p>
         </GlassCard>
-        <GlassCard className="border-l-4 border-l-red-500 bg-white/[0.03]">
-          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Alertas Críticos</p>
-          <p className="text-4xl font-black text-white mt-2 tracking-tighter">{data.unitToners.filter(ut => ut.quantity <= ut.minStockAlert).length}</p>
-          <div className="mt-2 text-[8px] font-bold text-red-400/50 uppercase">Abaixo da margem de segurança</div>
+        <GlassCard className="p-4 sm:p-6 border-l-2 sm:border-l-4 border-red-500 bg-red-500/5">
+          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Críticos</p>
+          <p className="text-2xl sm:text-4xl font-black text-white mt-1 tabular-nums">{data.unitToners.filter(ut => ut.quantity <= ut.minStockAlert).length}</p>
         </GlassCard>
-        <GlassCard className="border-l-4 border-l-yellow-500 bg-white/[0.03]">
-          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Requisições</p>
-          <p className="text-4xl font-black text-white mt-2 tracking-tighter">{data.requests.filter(r => r.status === 'PENDING').length}</p>
-          <div className="mt-2 text-[8px] font-bold text-yellow-500/50 uppercase">Aguardando processamento</div>
+        <GlassCard className="p-4 sm:p-6 border-l-2 sm:border-l-4 border-yellow-500 bg-yellow-500/5">
+          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Pedidos</p>
+          <p className="text-2xl sm:text-4xl font-black text-white mt-1 tabular-nums">{data.requests.filter(r => r.status === 'PENDING').length}</p>
         </GlassCard>
-        <GlassCard className="border-l-4 border-l-emerald-500 bg-white/[0.03]">
-          <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Foco Operacional</p>
-          <p className="text-4xl font-black text-white mt-2 tracking-tighter">{data.units.length}</p>
-          <div className="mt-2 text-[8px] font-bold text-emerald-500/50 uppercase">{isGlobalUser ? 'Unidades monitoradas' : 'Unidade de atuação'}</div>
+        <GlassCard className="p-4 sm:p-6 border-l-2 sm:border-l-4 border-emerald-500 bg-emerald-500/5">
+          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Unidades</p>
+          <p className="text-2xl sm:text-4xl font-black text-white mt-1 tabular-nums">{data.units.length}</p>
         </GlassCard>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <GlassCard title="Disponibilidade por Modelo">
-          <div className="h-[300px] w-full mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
+        <GlassCard title="Níveis por Modelo">
+          <div className="h-[250px] sm:h-[300px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stockByModel}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} axisLine={false} />
-                <YAxis stroke="rgba(255,255,255,0.3)" fontSize={9} tickLine={false} axisLine={false} />
+                <XAxis dataKey="name" stroke="rgba(255,255,255,0.15)" fontSize={8} tickLine={false} axisLine={false} />
+                <YAxis stroke="rgba(255,255,255,0.15)" fontSize={8} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                  contentStyle={{ backgroundColor: 'rgba(20,22,35,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', backdropFilter: 'blur(10px)' }} 
+                  cursor={{fill: 'rgba(255,255,255,0.03)'}}
+                  contentStyle={{ backgroundColor: '#13151a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px' }} 
                 />
-                <Bar dataKey="total" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+                <Bar dataKey="total" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={24} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </GlassCard>
 
-        <GlassCard title="Mix de Cores em Estoque">
-          <div className="h-[300px] w-full mt-4">
+        <GlassCard title="Distribuição de Cores">
+          <div className="h-[250px] sm:h-[300px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={stockByColor} innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value" stroke="none">
+                <Pie data={stockByColor} innerRadius={60} outerRadius={85} paddingAngle={5} dataKey="value" stroke="none">
                   {stockByColor.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getColorHex(entry.name)} />
                   ))}
                 </Pie>
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'rgba(20,22,35,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', backdropFilter: 'blur(10px)' }} 
+                  contentStyle={{ backgroundColor: '#13151a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px' }} 
                 />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '900' }} />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '900' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </GlassCard>
       </div>
 
-      <GlassCard title="Timeline de Movimentação" className="border-indigo-500/5">
-        <div className="overflow-x-auto mt-4">
-          <table className="w-full text-left">
+      <GlassCard title="Atividade Recente" className="overflow-hidden">
+        <div className="overflow-x-auto mt-4 custom-scrollbar">
+          <table className="w-full text-left min-w-[600px]">
             <thead>
-              <tr className="border-b border-white/5 text-white/20 text-[9px] uppercase font-black tracking-[0.2em] bg-white/[0.01]">
-                <th className="py-5 px-6">Transação</th>
-                <th className="py-5 px-6">Modelo</th>
-                <th className="py-5 px-6">Quantidade</th>
-                <th className="py-5 px-6">Unidade Responsável</th>
-                <th className="py-5 px-6 text-right">Carimbo de Tempo</th>
+              <tr className="border-b border-white/5 text-white/20 text-[8px] uppercase font-black tracking-[0.3em]">
+                <th className="py-4 px-6">Status</th>
+                <th className="py-4 px-6">Insumo</th>
+                <th className="py-4 px-6">Qtd</th>
+                <th className="py-4 px-6">Origem/Destino</th>
+                <th className="py-4 px-6 text-right">Data/Hora</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.02]">
-              {data.transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-white/10 font-black uppercase tracking-widest text-xs italic">Nenhuma atividade registrada</td>
-                </tr>
-              ) : (
-                data.transactions.slice(0, 8).map(tx => {
-                  const toner = data.toners.find(t => t.id === tx.tonerId);
-                  const unit = data.units.find(u => u.id === tx.unitId) || { name: 'Unidade Externa' };
-                  return (
-                    <tr key={tx.id} className="text-xs hover:bg-white/[0.02] transition-all group">
-                      <td className="py-5 px-6">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-2 h-2 rounded-full ${tx.type === 'ADD' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`}></span>
-                          <span className={`text-[9px] font-black tracking-widest ${tx.type === 'ADD' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {tx.type}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-5 px-6 font-bold text-white/80 group-hover:text-indigo-400 transition-colors">{toner?.model}</td>
-                      <td className="py-5 px-6 text-white/60 font-black">x{tx.quantity}</td>
-                      <td className="py-5 px-6 text-white/30 text-[10px] uppercase font-black tracking-tighter">{unit.name}</td>
-                      <td className="py-5 px-6 text-right text-white/20 font-medium italic">
-                        {new Date(tx.timestamp).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+            <tbody className="divide-y divide-white/5">
+              {data.transactions.slice(0, 6).map(tx => {
+                const toner = data.toners.find(t => t.id === tx.tonerId);
+                const unit = data.units.find(u => u.id === tx.unitId) || { name: 'Externa' };
+                return (
+                  <tr key={tx.id} className="text-xs hover:bg-white/[0.01] transition-all">
+                    <td className="py-4 px-6">
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-md border ${tx.type === 'ADD' ? 'border-emerald-500/20 text-emerald-400 bg-emerald-500/5' : 'border-red-500/20 text-red-400 bg-red-500/5'}`}>
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 font-bold text-white/60">{toner?.model}</td>
+                    <td className="py-4 px-6 text-white/40 font-black tabular-nums">{tx.quantity}</td>
+                    <td className="py-4 px-6 text-white/20 text-[9px] uppercase font-black">{unit.name}</td>
+                    <td className="py-4 px-6 text-right text-white/10 text-[9px] font-medium">
+                      {new Date(tx.timestamp).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

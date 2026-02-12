@@ -3,55 +3,82 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TonMan v2 | Gestão de Toners</title>
+    
+    <!-- PWA Primary Tags -->
+    <meta name="theme-color" content="#1a1c2c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TonMan v2" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3621/3621144.png" />
+    <link rel="manifest" href="manifest.json" />
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        background: radial-gradient(circle at top left, #1a1c2c, #4a194c);
+        background: radial-gradient(circle at top left, #1a1c2c, #13151a);
         color: #e2e8f0;
         min-height: 100vh;
         margin: 0;
+        overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent;
       }
       .glass {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.03);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
       .glass-card {
-        background: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
       }
-      ::-webkit-scrollbar {
-        width: 8px;
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
       }
-      ::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
       }
-      ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+      }
+      
+      /* Mobile optimization */
+      @media (max-width: 768px) {
+        .glass-card {
+          backdrop-filter: blur(8px);
+        }
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "recharts": "https://esm.sh/recharts@^3.7.0",
-    "@neondatabase/serverless": "https://esm.sh/@neondatabase/serverless@^0.10.4"
-  }
-}
-</script>
-</head>
+    <script type="importmap">
+    {
+      "imports": {
+        "react/": "https://esm.sh/react@^19.2.4/",
+        "react": "https://esm.sh/react@^19.2.4",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+        "recharts": "https://esm.sh/recharts@^3.7.0",
+        "@neondatabase/serverless": "https://esm.sh/@neondatabase/serverless@^0.10.4"
+      }
+    }
+    </script>
+  </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Service Worker minimal registration for PWA installability
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>
