@@ -10,12 +10,16 @@ const sql = neon(DATABASE_URL);
 class StorageService {
   public lastError: string | null = null;
 
+  // Initialize the database schema and seed data if needed
   async initDatabase() {
     try {
       this.lastError = null;
       
-      // Teste de conexão simples
-      await sql`SELECT 1`;
+      // Ultra-fast connection test
+      await Promise.race([
+        sql`SELECT 1`,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de Conexão com a Nuvem")), 8000))
+      ]);
 
       await sql`CREATE TABLE IF NOT EXISTS units (id TEXT PRIMARY KEY, name TEXT NOT NULL, display_order INTEGER DEFAULT 0)`;
       await sql`CREATE TABLE IF NOT EXISTS toners (id TEXT PRIMARY KEY, model TEXT NOT NULL, color TEXT NOT NULL, active BOOLEAN DEFAULT true)`;
@@ -57,224 +61,197 @@ class StorageService {
                     ON CONFLICT (username) DO UPDATE SET unit_id = EXCLUDED.unit_id`;
         }
 
-        const sectorConfig: Record<string, string[]> = {
-          'u_hgsc': ['Recepção Adulta', 'Emergência', 'TI', 'Faturamento', 'Posto Enfermagem', 'Centro Cirúrgico', 'Compras'],
-          'u_operadora': ['Financeiro', 'Jurídico', 'RH', 'TI', 'Credenciamento', 'Comercial'],
-          'u_itcm': ['Consultório 01', 'Recepção 01', 'TI', 'Faturamento', 'Posto Enfermagem'],
-          'u_bangu': ['Recepção Principal', 'Consultório 1', 'Enfermagem']
-        };
-
-        for (const [uId, sectors] of Object.entries(sectorConfig)) {
-          for (const sName of sectors) {
-            const sid = `s_${uId}_${sName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-            await sql`INSERT INTO unit_sectors (id, unit_id, name) VALUES (${sid}, ${uId}, ${sName}) ON CONFLICT DO NOTHING`;
-          }
-        }
-
-        const tonerCatalog = [
-          { model: 'RICOH SP 3710', colors: ['Preto'] },
-          { model: 'RICOH P 311', colors: ['Preto'] },
-          { model: 'BROTHER L5652DN', colors: ['Preto'] },
-          { model: 'KONICA C258', colors: ['Preto', 'Ciano', 'Magenta', 'Amarelo'] }
-        ];
-
-        for (const t of tonerCatalog) {
-          for (const color of t.colors) {
-            const tid = 't_' + t.model.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + color.toLowerCase();
-            await sql`INSERT INTO toners (id, model, color) VALUES (${tid}, ${t.model}, ${color}) ON CONFLICT DO NOTHING`;
-            for (const un of unitsMap) {
-              const utId = `ut_${un.id}_${tid}`;
-              await sql`INSERT INTO unit_toners (id, unit_id, toner_id, quantity, min_stock_alert) 
-                        VALUES (${utId}, ${un.id}, ${tid}, 0, 5) ON CONFLICT DO NOTHING`;
-            }
-          }
-        }
-
-        await sql`INSERT INTO users (id, username, password, role, display_name, email) 
-                  VALUES ('usr_admin', 'admin', '123', 'admin', 'Administrador Geral', 'admin@tonman.com')
+        // Add admin user
+        await sql`INSERT INTO users (id, username, password, role, display_name, email)
+                  VALUES ('admin_1', 'admin', '123', 'admin', 'System Administrator', 'admin@tonman.com')
                   ON CONFLICT (username) DO NOTHING`;
+        
+        // Add default toners
+        const defaultToners = [
+          { id: 't1', model: 'TN-514K', color: 'Preto' },
+          { id: 't2', model: 'TN-514C', color: 'Ciano' },
+          { id: 't3', model: 'TN-514M', color: 'Magenta' },
+          { id: 't4', model: 'TN-514Y', color: 'Amarelo' }
+        ];
+        for (const t of defaultToners) {
+          await sql`INSERT INTO toners (id, model, color) VALUES (${t.id}, ${t.model}, ${t.color}) ON CONFLICT (id) DO NOTHING`;
+        }
       }
-
     } catch (error: any) {
-      console.error("Erro Crítico no Banco:", error);
-      this.lastError = error?.message || "Erro desconhecido ao conectar com a nuvem.";
+      this.lastError = error?.message || "Erro de rede ao conectar com Neon.";
       throw error;
     }
   }
 
-  // --- TONERS ---
-  async createToner(model: string, color: string): Promise<void> {
-    const tid = 't_' + model.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + color.toLowerCase() + '_' + Math.random().toString(36).substr(2, 5);
-    await sql`INSERT INTO toners (id, model, color) VALUES (${tid}, ${model}, ${color})`;
-    const units = await this.getUnits();
-    for (const un of units) {
-      const utId = `ut_${un.id}_${tid}`;
-      await sql`INSERT INTO unit_toners (id, unit_id, toner_id, quantity, min_stock_alert) 
-                VALUES (${utId}, ${un.id}, ${tid}, 0, 5) ON CONFLICT DO NOTHING`;
-    }
+  // Toners
+  async getToners() { 
+    const rows = await sql`SELECT * FROM toners WHERE active = true ORDER BY model ASC`;
+    return rows as unknown as Toner[];
   }
-
-  async updateToner(toner: Partial<Toner>): Promise<void> {
+  async createToner(model: string, color: string) {
+    const id = 't_' + Math.random().toString(36).substr(2, 9);
+    await sql`INSERT INTO toners (id, model, color) VALUES (${id}, ${model}, ${color})`;
+  }
+  async updateToner(toner: Toner) {
     await sql`UPDATE toners SET model = ${toner.model}, color = ${toner.color}, active = ${toner.active} WHERE id = ${toner.id}`;
   }
-
-  async deleteToner(id: string): Promise<void> {
-    await sql`DELETE FROM toners WHERE id = ${id}`;
+  async deleteToner(id: string) {
+    await sql`UPDATE toners SET active = false WHERE id = ${id}`;
   }
 
-  async getToners(): Promise<Toner[]> {
-    const rows = await sql`SELECT * FROM toners WHERE active = true ORDER BY model ASC`;
-    return rows.map(r => ({ id: r.id, model: r.model, color: r.color, active: r.active }));
+  // Units
+  async getUnits() { 
+    const rows = await sql`SELECT * FROM units ORDER BY name ASC`;
+    return rows as unknown as Unit[];
   }
-
-  // --- USERS ---
-  async createUser(user: Partial<User>): Promise<void> {
-    const id = 'usr_' + Math.random().toString(36).substr(2, 9);
-    await sql`INSERT INTO users (id, username, password, role, display_name, email, unit_id, sector_id, permissions) 
-              VALUES (${id}, ${user.username}, '123', ${user.role}, ${user.displayName}, ${user.email || (user.username + '@tonman.com')}, ${user.unitId}, ${user.sectorId}, ${JSON.stringify(user.permissions || [])})`;
-  }
-
-  async updateUser(user: Partial<User>): Promise<void> {
-    await sql`UPDATE users SET 
-              display_name = ${user.displayName}, 
-              email = ${user.email}, 
-              role = ${user.role}, 
-              unit_id = ${user.unitId}, 
-              sector_id = ${user.sectorId} 
-              WHERE id = ${user.id}`;
-  }
-
-  async deleteUser(id: string): Promise<void> {
-    await sql`DELETE FROM users WHERE id = ${id}`;
-  }
-
-  async getUsers(): Promise<User[]> {
-    const rows = await sql`SELECT * FROM users`;
-    return rows.map(r => ({
-      id: r.id, username: r.username, displayName: r.display_name, email: r.email,
-      role: r.role as any, unitId: r.unit_id, sectorId: r.sector_id,
-      permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : (r.permissions || [])
-    }));
-  }
-
-  // --- UNITS ---
-  async createUnit(name: string): Promise<void> {
-    const id = 'u_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Math.random().toString(36).substr(2, 5);
+  async createUnit(name: string) {
+    const id = 'u_' + name.toLowerCase().replace(/\s+/g, '_').substr(0, 10) + Math.random().toString(36).substr(2, 4);
     await sql`INSERT INTO units (id, name, display_order) VALUES (${id}, ${name}, 1)`;
-    
-    const toners = await this.getToners();
-    for (const t of toners) {
-      const utId = `ut_${id}_${t.id}`;
-      await sql`INSERT INTO unit_toners (id, unit_id, toner_id, quantity, min_stock_alert) 
-                VALUES (${utId}, ${id}, ${t.id}, 0, 5) ON CONFLICT DO NOTHING`;
-    }
   }
-
-  async updateUnit(id: string, name: string): Promise<void> {
+  async updateUnit(id: string, name: string) {
     await sql`UPDATE units SET name = ${name} WHERE id = ${id}`;
   }
-
-  async deleteUnit(id: string): Promise<void> {
+  async deleteUnit(id: string) {
     await sql`DELETE FROM units WHERE id = ${id}`;
   }
 
-  async getUnits(): Promise<Unit[]> {
-    const rows = await sql`SELECT * FROM units ORDER BY name ASC`;
-    return rows.map(r => ({ id: r.id, name: r.name, displayOrder: r.display_order }));
+  // Users
+  async getUsers() { 
+    const rows = await sql`SELECT * FROM users`;
+    return rows.map(u => ({
+      id: u.id,
+      username: u.username,
+      displayName: u.display_name,
+      email: u.email,
+      role: u.role as UserRole,
+      unitId: u.unit_id,
+      sectorId: u.sector_id,
+      permissions: Array.isArray(u.permissions) ? u.permissions : []
+    })) as User[];
+  }
+  async createUser(user: Partial<User>) {
+    const id = 'usr_' + Math.random().toString(36).substr(2, 9);
+    await sql`INSERT INTO users (id, username, password, role, display_name, email, unit_id, sector_id) 
+              VALUES (${id}, ${user.username}, '123', ${user.role}, ${user.displayName}, ${user.email}, ${user.unitId || null}, ${user.sectorId || null})`;
+  }
+  async updateUser(user: User) {
+    await sql`UPDATE users SET username = ${user.username}, display_name = ${user.displayName}, email = ${user.email}, role = ${user.role}, unit_id = ${user.unitId}, sector_id = ${user.sectorId} WHERE id = ${user.id}`;
+  }
+  async deleteUser(id: string) {
+    await sql`DELETE FROM users WHERE id = ${id}`;
   }
 
-  // --- SECTORS ---
-  async createSector(unitId: string, name: string): Promise<void> {
-    const sid = `s_${unitId}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Math.random().toString(36).substr(2, 4)}`;
-    await sql`INSERT INTO unit_sectors (id, unit_id, name) VALUES (${sid}, ${unitId}, ${name})`;
+  // Sectors
+  async getUnitSectors(unitId?: string) { 
+    const rows = unitId ? await sql`SELECT * FROM unit_sectors WHERE unit_id = ${unitId}` : await sql`SELECT * FROM unit_sectors`;
+    return rows.map(r => ({
+      id: r.id,
+      unitId: r.unit_id,
+      name: r.name
+    })) as UnitSector[];
   }
-
-  async updateSector(id: string, name: string): Promise<void> {
+  async createSector(unitId: string, name: string) {
+    const id = 's_' + Math.random().toString(36).substr(2, 9);
+    await sql`INSERT INTO unit_sectors (id, unit_id, name) VALUES (${id}, ${unitId}, ${name})`;
+  }
+  async updateSector(id: string, name: string) {
     await sql`UPDATE unit_sectors SET name = ${name} WHERE id = ${id}`;
   }
-
-  async deleteSector(id: string): Promise<void> {
+  async deleteSector(id: string) {
     await sql`DELETE FROM unit_sectors WHERE id = ${id}`;
   }
 
-  async getUnitSectors(unitId?: string): Promise<UnitSector[]> {
-    const rows = unitId 
-      ? await sql`SELECT * FROM unit_sectors WHERE unit_id = ${unitId} ORDER BY name ASC`
-      : await sql`SELECT * FROM unit_sectors ORDER BY name ASC`;
-    return rows.map(r => ({ id: r.id, unitId: r.unit_id, name: r.name }));
+  // Stock & Transactions
+  async getUnitToners() { 
+    const results = await sql`SELECT * FROM unit_toners`;
+    return results.map(row => ({
+      id: row.id,
+      unitId: row.unit_id,
+      tonerId: row.toner_id,
+      quantity: row.quantity,
+      minStockAlert: row.min_stock_alert,
+      isActive: row.is_active
+    })) as UnitToner[];
   }
 
-  // --- STOCK & REQUESTS ---
-  async getUnitToners(): Promise<UnitToner[]> {
-    const rows = await sql`SELECT * FROM unit_toners`;
-    return rows.map(r => ({
-      id: r.id, unitId: r.unit_id, tonerId: r.toner_id, quantity: r.quantity,
-      minStockAlert: r.min_stock_alert, isActive: r.is_active
-    }));
-  }
-
-  async updateStock(unitId: string, tonerId: string, amount: number, userId: string, type: string, reason: string): Promise<boolean> {
+  async updateStock(unitId: string, tonerId: string, quantity: number, userId: string, type: TransactionType, reason: string) {
     try {
-      await sql`UPDATE unit_toners SET quantity = quantity + ${amount} WHERE unit_id = ${unitId} AND toner_id = ${tonerId}`;
+      const existing = await sql`SELECT * FROM unit_toners WHERE unit_id = ${unitId} AND toner_id = ${tonerId}`;
+      
+      if (existing.length > 0) {
+        const newQty = (existing[0].quantity || 0) + quantity;
+        if (newQty < 0) return false;
+        await sql`UPDATE unit_toners SET quantity = ${newQty} WHERE id = ${existing[0].id}`;
+      } else {
+        if (quantity < 0) return false;
+        const id = 'ut_' + Math.random().toString(36).substr(2, 9);
+        await sql`INSERT INTO unit_toners (id, unit_id, toner_id, quantity) VALUES (${id}, ${unitId}, ${tonerId}, ${quantity})`;
+      }
+
       const txId = 'tx_' + Math.random().toString(36).substr(2, 9);
-      await sql`INSERT INTO transactions (id, type, quantity, reason, user_id, toner_id, unit_id)
-                VALUES (${txId}, ${type}, ${Math.abs(amount)}, ${reason}, ${userId}, ${tonerId}, ${unitId})`;
-      return true;
-    } catch (e) { return false; }
-  }
-
-  async transferStock(sourceUnitId: string, targetUnitId: string, tonerId: string, quantity: number, userId: string): Promise<boolean> {
-    try {
-      const sourceStock = await sql`SELECT quantity FROM unit_toners WHERE unit_id = ${sourceUnitId} AND toner_id = ${tonerId}`;
-      if (!sourceStock[0] || sourceStock[0].quantity < quantity) return false;
-
-      // 1. Remove from source
-      await sql`UPDATE unit_toners SET quantity = quantity - ${quantity} WHERE unit_id = ${sourceUnitId} AND toner_id = ${tonerId}`;
-      
-      // 2. Add to target
-      await sql`UPDATE unit_toners SET quantity = quantity + ${quantity} WHERE unit_id = ${targetUnitId} AND toner_id = ${tonerId}`;
-      
-      // 3. Log transaction
-      const txId = 'tx_trans_' + Math.random().toString(36).substr(2, 9);
-      await sql`INSERT INTO transactions (id, type, quantity, reason, user_id, toner_id, unit_id)
-                VALUES (${txId}, 'TRANSFER', ${quantity}, ${`Transferência para unidade ${targetUnitId}`}, ${userId}, ${tonerId}, ${sourceUnitId})`;
+      await sql`INSERT INTO transactions (id, type, quantity, reason, user_id, toner_id, unit_id) 
+                VALUES (${txId}, ${type}, ${Math.abs(quantity)}, ${reason}, ${userId}, ${tonerId}, ${unitId})`;
       
       return true;
     } catch (e) {
-      console.error("Erro na transferência:", e);
+      console.error("Error updating stock:", e);
       return false;
     }
   }
 
-  async getTransactions(): Promise<Transaction[]> {
+  async transferStock(fromUnitId: string, toUnitId: string, tonerId: string, quantity: number, userId: string) {
+    try {
+      // Deduct from source
+      const deducted = await this.updateStock(fromUnitId, tonerId, -quantity, userId, TransactionType.REMOVE, `Transferência para unidade ${toUnitId}`);
+      if (!deducted) return false;
+
+      // Add to destination
+      await this.updateStock(toUnitId, tonerId, quantity, userId, TransactionType.ADD, `Transferência da unidade ${fromUnitId}`);
+      
+      return true;
+    } catch (e) {
+      console.error("Error transferring stock:", e);
+      return false;
+    }
+  }
+
+  async getTransactions() { 
     const rows = await sql`SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 100`;
     return rows.map(r => ({
-      id: r.id, type: r.type as any, quantity: r.quantity, reason: r.reason,
-      userId: r.user_id, tonerId: r.toner_id, unitId: r.unit_id,
-      timestamp: new Date(r.timestamp).toISOString()
-    }));
+      id: r.id,
+      type: r.type as TransactionType,
+      quantity: r.quantity,
+      reason: r.reason,
+      userId: r.user_id,
+      tonerId: r.toner_id,
+      unitId: r.unit_id,
+      timestamp: r.timestamp
+    })) as Transaction[];
   }
 
-  async getRequests(): Promise<TonerRequest[]> {
+  // Requests
+  async getRequests() { 
     const rows = await sql`SELECT * FROM toner_requests ORDER BY timestamp DESC`;
     return rows.map(r => ({
-      id: r.id, status: r.status as any, quantity: r.quantity, sectorName: r.sector_name,
-      requestorId: r.requestor_id, tonerId: r.toner_id, unitId: r.unit_id,
-      timestamp: new Date(r.timestamp).toISOString()
-    }));
+      id: r.id,
+      status: r.status as RequestStatus,
+      quantity: r.quantity,
+      sectorName: r.sector_name,
+      requestorId: r.requestor_id,
+      tonerId: r.toner_id,
+      unitId: r.unit_id,
+      timestamp: r.timestamp
+    })) as TonerRequest[];
   }
 
-  async createRequest(request: Partial<TonerRequest>): Promise<void> {
+  async createRequest(req: Partial<TonerRequest>) {
     const id = 'req_' + Math.random().toString(36).substr(2, 9);
-    await sql`INSERT INTO toner_requests (id, status, quantity, sector_name, requestor_id, toner_id, unit_id)
-              VALUES (${id}, 'PENDING', ${request.quantity}, ${request.sectorName}, ${request.requestorId}, ${request.tonerId}, ${request.unitId})`;
+    await sql`INSERT INTO toner_requests (id, status, quantity, sector_name, requestor_id, toner_id, unit_id) 
+              VALUES (${id}, ${RequestStatus.PENDING}, ${req.quantity}, ${req.sectorName}, ${req.requestorId}, ${req.tonerId}, ${req.unitId})`;
   }
 
-  async updateRequestStatus(requestId: string, status: string): Promise<boolean> {
-    try {
-      await sql`UPDATE toner_requests SET status = ${status} WHERE id = ${requestId}`;
-      return true;
-    } catch (e) { return false; }
+  async updateRequestStatus(requestId: string, status: RequestStatus) {
+    await sql`UPDATE toner_requests SET status = ${status} WHERE id = ${requestId}`;
   }
 }
 

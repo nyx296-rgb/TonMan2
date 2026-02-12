@@ -14,26 +14,25 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3621/3621144.png" />
     <link rel="manifest" href="manifest.json" />
 
-    <!-- Meta para mitigar avisos de Permissions-Policy em alguns ambientes -->
-    <meta http-equiv="Delegate-CH" content="sec-ch-ua-arch; sec-ch-ua-platform-version; sec-ch-ua-model" />
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <script>
-      // Configuração para silenciar o aviso de produção do Tailwind no console, se possível
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              indigo: {
-                500: '#6366f1',
-                600: '#4f46e5',
-              }
-            }
-          }
+      // Diagnóstico de Erros Críticos (Vanilla JS)
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        const root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #ef4444; font-family: sans-serif;">
+              <h1 style="font-weight: 900;">ERRO DE CARREGAMENTO</h1>
+              <p style="color: rgba(255,255,255,0.5); font-size: 12px;">O sistema não conseguiu iniciar os módulos de interface.</p>
+              <pre style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; font-size: 10px; color: #f87171; text-align: left; overflow: auto; max-width: 100%;">${msg}</pre>
+              <button onclick="location.reload()" style="background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 20px;">Tentar Novamente</button>
+            </div>
+          `;
         }
-      }
+        return false;
+      };
     </script>
 
     <style>
@@ -43,74 +42,67 @@
         color: #e2e8f0;
         min-height: 100vh;
         margin: 0;
-        overflow-x: hidden;
-        -webkit-tap-highlight-color: transparent;
+        overflow: hidden;
       }
-      .glass {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+      #root {
+        height: 100vh;
+        width: 100vw;
       }
-      .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-      }
-      
-      /* Mobile optimization */
-      @media (max-width: 768px) {
-        .glass-card {
-          backdrop-filter: blur(8px);
-        }
-      }
-
-      #root:empty::before {
-        content: "Iniciando Camada Visual...";
+      .loading-state {
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
+        text-align: center;
+      }
+      .loading-text {
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.5em;
         font-size: 10px;
-        color: rgba(255,255,255,0.1);
+        color: rgba(255,255,255,0.4);
         animation: pulse 2s infinite;
       }
-
       @keyframes pulse {
-        0%, 100% { opacity: 0.2; }
-        50% { opacity: 0.5; }
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 0.8; }
       }
+      
+      /* Glassmorphism Classes */
+      .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+      .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
     </style>
+
     <script type="importmap">
-    {
-      "imports": {
-        "react/": "https://esm.sh/react@^19.2.4/",
-        "react": "https://esm.sh/react@^19.2.4",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-        "recharts": "https://esm.sh/recharts@^3.7.0",
-        "@neondatabase/serverless": "https://esm.sh/@neondatabase/serverless@^0.10.4"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "recharts": "https://esm.sh/recharts@3.7.0",
+    "@neondatabase/serverless": "https://esm.sh/@neondatabase/serverless@0.10.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/"
+  }
+}
+</script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="loading-state">
+        <div style="width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+        <div class="loading-text">Iniciando Camada Visual</div>
+      </div>
+    </div>
+    
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+    <!-- Entry Point do Sistema -->
+    <script type="module" src="./index.tsx"></script>
+
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
